@@ -20,4 +20,31 @@ router.put('/:id', protect, adminOnly, editCourse);
 // Route: Publish a course (partial update to status)
 router.patch('/:id/publish', protect, adminOnly, publishCourse);
 
+// Route: Add a lesson to a course
+router.post(
+  '/:id/lessons',
+  protect,
+  adminOnly,
+  upload.single('video'),
+  addLesson
+);
+
+// Route: Add a resource to a course
+router.post(
+  '/:id/resources',
+  protect,
+  adminOnly,
+  upload.single('file'),
+  addResource
+);
+
+// Route: Add an assessment to a course
+router.post(
+  '/:id/assessments',
+  protect,
+  adminOnly,
+  upload.single('file'),
+  addAssessment
+);
+
 export default router;
