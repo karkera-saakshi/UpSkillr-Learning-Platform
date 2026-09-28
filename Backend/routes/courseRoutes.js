@@ -4,11 +4,17 @@ const router = express.Router();
 // Import JWT auth middleware
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
+// Import file upload middleware
+import { upload } from '../middleware/uploadMiddleware.js';
+
 // Import course controller functions
 import {
   createCourse,
   editCourse,
   publishCourse,
+  addLesson,
+  addResource,
+  addAssessment,
 } from '../controllers/courseController.js';
 
 // Route: Create a new course
