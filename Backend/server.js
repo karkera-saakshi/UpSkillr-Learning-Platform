@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
-
+import courseRoutes from "./routes/courseRoutes.js";
 
 dotenv.config();
 
@@ -19,6 +19,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/profile",profileRoutes);
+
+app.use("/api/courseAdmin", courseRoutes);
 
 app.get("/", (req, res) => {
   res.json({
