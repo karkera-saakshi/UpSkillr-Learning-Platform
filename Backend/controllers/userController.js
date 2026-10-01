@@ -6,7 +6,7 @@
 // Related acceptance criteria: AC-02, AC-03
 
 import mongoose from "mongoose";
-import Course from "../models/Course.js";
+import Course from "../models/course.js";
 import Enrolment from "../models/Enrolment.js";
 
 /**
