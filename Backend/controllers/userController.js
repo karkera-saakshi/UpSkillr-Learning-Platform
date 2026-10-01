@@ -1,18 +1,9 @@
-// userController.js
-// UpSkillr - Online Learning and Skill Development Platform
-// Fulfills:
-//   FR-05: The system shall allow learners to browse available courses.
-//   FR-06: The system shall allow a learner to enrol in a course through a single action.
-// Related acceptance criteria: AC-02, AC-03
 
 import mongoose from "mongoose";
 import Course from "../models/course.js";
-import Enrolment from "../models/Enrolment.js";
+import Enrolment from "../models/enrolment.js";
 
-/**
- * FR-05: Browse available courses.
- * GET /api/courses
- */
+
 export const browseCourses = async (req, res) => {
   try {
     const { search = "", page = 1, limit = 12 } = req.query;
@@ -56,10 +47,7 @@ export const browseCourses = async (req, res) => {
   }
 };
 
-/**
- * FR-06: Enrol in a course through a single action.
- * POST /api/courses/:courseId/enrol
- */
+
 export const enrolInCourse = async (req, res) => {
   try {
     const { courseId } = req.params;
