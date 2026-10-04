@@ -11,6 +11,7 @@ export const registerUser = async (req, res) => {
       email,
       mobile,
       password,
+      role,
     } = req.body;
 
     if (!name || !email || !mobile || !password) {
@@ -20,6 +21,11 @@ export const registerUser = async (req, res) => {
           "Name, email, mobile and password are required",
       });
     }
+
+    const allowedRoles = ["learner", "instructor"];
+    const safeRole = allowedRoles.includes(role)
+      ? role
+      : "learner";
 
     const existingEmail = await User.findOne({
       email: email.toLowerCase(),
@@ -53,6 +59,7 @@ export const registerUser = async (req, res) => {
       email: email.toLowerCase(),
       mobile,
       password: hashedPassword,
+      role: safeRole,
     });
 
     const token = generateToken(user);

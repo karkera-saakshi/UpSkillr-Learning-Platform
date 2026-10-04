@@ -14,12 +14,12 @@ export const browseCourses = async (req, res) => {
     const filter = { status: "published" };
 
     if (search.trim()) {
-      filter.title = { $regex: search.trim(), $options: "i" };
+      filter.name = { $regex: search.trim(), $options: "i" };
     }
 
     const [courses, total] = await Promise.all([
       Course.find(filter)
-        .select("title description instructor createdAt")
+        .select("name description level image instructor createdAt")
         .populate("instructor", "name email")
         .sort({ createdAt: -1 })
         .skip((pageNum - 1) * limitNum)

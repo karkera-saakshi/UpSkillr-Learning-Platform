@@ -1,13 +1,9 @@
 import express from 'express';
 const router = express.Router();
+import { protect, authorize } from '../middleware/authMiddleware.js';
 
-// Import JWT auth middleware
-import { protect, adminOnly } from '../middleware/authMiddleware.js';
-
-// Import file upload middleware
 import { upload } from '../middleware/uploadMiddleware.js';
 
-// Import course controller functions
 import {
   createCourse,
   editCourse,
@@ -17,38 +13,32 @@ import {
   addAssessment,
 } from '../controllers/courseController.js';
 
-// Route: Create a new course
-router.post('/', protect, adminOnly, createCourse);
+router.post('/', protect, authorize('instructor'), createCourse);
 
-// Route: Edit an existing course by ID
-router.put('/:id', protect, adminOnly, editCourse);
+router.put('/:id', protect, authorize('instructor'), editCourse);
 
-// Route: Publish a course (partial update to status)
-router.patch('/:id/publish', protect, adminOnly, publishCourse);
+router.patch('/:id/publish', protect, authorize('instructor'), publishCourse);
 
-// Route: Add a lesson to a course
 router.post(
   '/:id/lessons',
   protect,
-  adminOnly,
+  authorize('instructor'),
   upload.single('video'),
   addLesson
 );
 
-// Route: Add a resource to a course
 router.post(
   '/:id/resources',
   protect,
-  adminOnly,
+  authorize('instructor'),
   upload.single('file'),
   addResource
 );
 
-// Route: Add an assessment to a course
 router.post(
   '/:id/assessments',
   protect,
-  adminOnly,
+  authorize('instructor'),
   upload.single('file'),
   addAssessment
 );
