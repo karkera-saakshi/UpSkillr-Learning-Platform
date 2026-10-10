@@ -126,14 +126,6 @@ export const enrolInCourse = async (req, res) => {
   }
 };
 
-
-// ============================================================
-// FR-07 / FR-08 - lesson completion, progress and dashboard
-// ============================================================
-
-// Works out one learner's progress in one course, using the lessons the
-// course has right now. Only lessons that still exist in the course are
-// counted, so progress stays correct if an instructor adds more lessons later.
 const buildProgress = (course, completedLessonIds) => {
   const lessonIds = (course.lessons || [])
     .filter((lesson) => lesson._id)
@@ -161,12 +153,6 @@ const buildProgress = (course, completedLessonIds) => {
   return { totalLessons, completedCount, percentage, status, completedIds };
 };
 
-
-/**
- * GET /api/courses/:courseId/learn
- * An enrolled learner opens a course and sees its lessons, with a
- * completed/not-completed flag on each one (needed to use FR-07).
- */
 export const getCourseContent = async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -237,12 +223,6 @@ export const getCourseContent = async (req, res) => {
   }
 };
 
-
-/**
- * FR-07: Mark a lesson as complete.
- * POST /api/courses/:courseId/lessons/:lessonId/complete
- * Satisfies AC-04: the recorded progress for the course is updated.
- */
 export const markLessonComplete = async (req, res) => {
   try {
     const { courseId, lessonId } = req.params;
@@ -275,7 +255,6 @@ export const markLessonComplete = async (req, res) => {
       });
     }
 
-    // Only a learner who is enrolled in this course can complete its lessons.
     const enrolment = await Enrolment.findOne({
       learner: learnerId,
       course: courseId,
@@ -292,7 +271,6 @@ export const markLessonComplete = async (req, res) => {
       (id) => String(id) === String(lessonId)
     );
 
-    // Completing the same lesson twice does not create a duplicate entry.
     if (!alreadyDone) {
       enrolment.progress.completedLessons.push(lessonId);
     }
@@ -325,14 +303,6 @@ export const markLessonComplete = async (req, res) => {
   }
 };
 
-
-/**
- * FR-08: Learner dashboard.
- * GET /api/courses/dashboard
- * Lists every course the learner is enrolled in, with progress percentage
- * and completion status. Satisfies AC-03 (enrolled course appears) and
- * AC-05 (a fully completed course shows as complete).
- */
 export const getDashboard = async (req, res) => {
   try {
     const learnerId = req.user.id;
