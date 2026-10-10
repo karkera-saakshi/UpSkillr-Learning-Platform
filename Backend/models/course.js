@@ -1,5 +1,16 @@
 import mongoose from 'mongoose';
 
+
+const lessonSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    trim: true,
+  },
+  videoUrl: {
+    type: String,
+  },
+});
+
 const courseSchema = new mongoose.Schema(
   {
     name: {
@@ -39,7 +50,7 @@ const courseSchema = new mongoose.Schema(
       default: 'draft',
     },
     lessons: {
-      type: [Object],
+      type: [lessonSchema],
       default: [],
     },
     resources: {

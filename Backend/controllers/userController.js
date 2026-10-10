@@ -125,3 +125,269 @@ export const enrolInCourse = async (req, res) => {
     });
   }
 };
+
+
+// ============================================================
+// FR-07 / FR-08 - lesson completion, progress and dashboard
+// ============================================================
+
+// Works out one learner's progress in one course, using the lessons the
+// course has right now. Only lessons that still exist in the course are
+// counted, so progress stays correct if an instructor adds more lessons later.
+const buildProgress = (course, completedLessonIds) => {
+  const lessonIds = (course.lessons || [])
+    .filter((lesson) => lesson._id)
+    .map((lesson) => String(lesson._id));
+
+  const completedSet = new Set(
+    (completedLessonIds || []).map((id) => String(id))
+  );
+
+  const completedIds = lessonIds.filter((id) => completedSet.has(id));
+
+  const totalLessons = lessonIds.length;
+  const completedCount = completedIds.length;
+
+  const percentage =
+    totalLessons === 0
+      ? 0
+      : Math.round((completedCount / totalLessons) * 100);
+
+  const status =
+    totalLessons > 0 && completedCount === totalLessons
+      ? "completed"
+      : "in-progress";
+
+  return { totalLessons, completedCount, percentage, status, completedIds };
+};
+
+
+/**
+ * GET /api/courses/:courseId/learn
+ * An enrolled learner opens a course and sees its lessons, with a
+ * completed/not-completed flag on each one (needed to use FR-07).
+ */
+export const getCourseContent = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const learnerId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return res.status(400).json({ success: false, message: "Invalid course id." });
+    }
+
+    const enrolment = await Enrolment.findOne({
+      learner: learnerId,
+      course: courseId,
+    }).lean();
+
+    if (!enrolment) {
+      return res.status(403).json({
+        success: false,
+        message: "You must enrol in this course to view its lessons.",
+      });
+    }
+
+    const course = await Course.findById(courseId)
+      .populate("instructor", "name email")
+      .lean();
+
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found." });
+    }
+
+    const progress = buildProgress(course, enrolment.progress.completedLessons);
+    const completedSet = new Set(progress.completedIds);
+
+    const lessons = (course.lessons || []).map((lesson) => ({
+      _id: lesson._id,
+      title: lesson.title,
+      videoUrl: lesson.videoUrl,
+      completed: completedSet.has(String(lesson._id)),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        course: {
+          _id: course._id,
+          name: course.name,
+          description: course.description,
+          level: course.level,
+          image: course.image,
+          instructor: course.instructor,
+        },
+        lessons,
+        resources: course.resources || [],
+        assessments: course.assessments || [],
+        progress: {
+          totalLessons: progress.totalLessons,
+          completedLessons: progress.completedCount,
+          percentage: progress.percentage,
+          status: progress.status,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("getCourseContent error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load course content at this time.",
+    });
+  }
+};
+
+
+/**
+ * FR-07: Mark a lesson as complete.
+ * POST /api/courses/:courseId/lessons/:lessonId/complete
+ * Satisfies AC-04: the recorded progress for the course is updated.
+ */
+export const markLessonComplete = async (req, res) => {
+  try {
+    const { courseId, lessonId } = req.params;
+    const learnerId = req.user.id;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(courseId) ||
+      !mongoose.Types.ObjectId.isValid(lessonId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course id or lesson id.",
+      });
+    }
+
+    const course = await Course.findById(courseId).select("lessons").lean();
+
+    if (!course) {
+      return res.status(404).json({ success: false, message: "Course not found." });
+    }
+
+    const lessonExists = (course.lessons || []).some(
+      (lesson) => lesson._id && String(lesson._id) === String(lessonId)
+    );
+
+    if (!lessonExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Lesson not found in this course.",
+      });
+    }
+
+    // Only a learner who is enrolled in this course can complete its lessons.
+    const enrolment = await Enrolment.findOne({
+      learner: learnerId,
+      course: courseId,
+    });
+
+    if (!enrolment) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not enrolled in this course.",
+      });
+    }
+
+    const alreadyDone = enrolment.progress.completedLessons.some(
+      (id) => String(id) === String(lessonId)
+    );
+
+    // Completing the same lesson twice does not create a duplicate entry.
+    if (!alreadyDone) {
+      enrolment.progress.completedLessons.push(lessonId);
+    }
+
+    const progress = buildProgress(course, enrolment.progress.completedLessons);
+    enrolment.progress.status = progress.status;
+
+    await enrolment.save();
+
+    return res.status(200).json({
+      success: true,
+      message: alreadyDone
+        ? "Lesson was already marked as complete."
+        : "Lesson marked as complete.",
+      data: {
+        courseId,
+        lessonId,
+        totalLessons: progress.totalLessons,
+        completedLessons: progress.completedCount,
+        percentage: progress.percentage,
+        status: progress.status,
+      },
+    });
+  } catch (error) {
+    console.error("markLessonComplete error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to update lesson progress at this time.",
+    });
+  }
+};
+
+
+/**
+ * FR-08: Learner dashboard.
+ * GET /api/courses/dashboard
+ * Lists every course the learner is enrolled in, with progress percentage
+ * and completion status. Satisfies AC-03 (enrolled course appears) and
+ * AC-05 (a fully completed course shows as complete).
+ */
+export const getDashboard = async (req, res) => {
+  try {
+    const learnerId = req.user.id;
+
+    const enrolments = await Enrolment.find({ learner: learnerId })
+      .populate({
+        path: "course",
+        select: "name description level image instructor lessons",
+        populate: { path: "instructor", select: "name" },
+      })
+      .sort({ enrolledAt: -1 })
+      .lean();
+
+    const courses = enrolments
+      .filter((enrolment) => enrolment.course) // skip if a course no longer exists
+      .map((enrolment) => {
+        const course = enrolment.course;
+        const progress = buildProgress(course, enrolment.progress.completedLessons);
+
+        return {
+          enrolmentId: enrolment._id,
+          enrolledAt: enrolment.enrolledAt,
+          course: {
+            _id: course._id,
+            name: course.name,
+            description: course.description,
+            level: course.level,
+            image: course.image,
+            instructor: course.instructor,
+          },
+          totalLessons: progress.totalLessons,
+          completedLessons: progress.completedCount,
+          percentage: progress.percentage,
+          status: progress.status,
+        };
+      });
+
+    const completedCourses = courses.filter((c) => c.status === "completed").length;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          totalCourses: courses.length,
+          completedCourses,
+          inProgressCourses: courses.length - completedCourses,
+        },
+        courses,
+      },
+    });
+  } catch (error) {
+    console.error("getDashboard error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load your dashboard at this time.",
+    });
+  }
+};
